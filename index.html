@@ -323,6 +323,26 @@
 
   .status { text-align: center; color: var(--ink-soft); font-size: 13px; margin-top: 40px; }
 
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--navy);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 50;
+    pointer-events: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+  }
+
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
   /* History view */
   .stats-card {
     background: var(--navy); color: #fff; border-radius: 14px;
@@ -450,10 +470,24 @@
   async function saveDay(iso) {
     try {
       await db.collection('itinerary').doc(iso).set({ items: state.items[iso] });
+      return true;
     } catch (e) {
       console.error('Storage save failed', e);
       alert('Could not save — check your connection and try again.');
+      return false;
     }
+  }
+
+  function showToast(message) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = message;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
+    }, 1600);
   }
 
   function sortItems(list) { return list.slice().sort((a, b) => a.time.localeCompare(b.time)); }
@@ -756,10 +790,12 @@
         } else {
           list.push({ id: 'i' + Date.now() + Math.random().toString(36).slice(2, 6), time, title, note, type: selectedType, forWho: selectedWho });
         }
-        await saveDay(iso);
+        const isNew = !existing;
+        const ok = await saveDay(iso);
         invalidateHistoryIndexFor(iso);
         closeSheet();
         render();
+        if (ok) showToast(isNew ? 'Saved' : 'Updated');
       } catch (err) {
         console.error('Save button error', err);
         alert('Save error: ' + (err && err.message ? err.message : err));
@@ -769,10 +805,11 @@
     if (existing) {
       document.getElementById('removeBtn').addEventListener('click', async () => {
         state.items[iso] = state.items[iso].filter(i => i.id !== existing.id);
-        await saveDay(iso);
+        const ok = await saveDay(iso);
         invalidateHistoryIndexFor(iso);
         closeSheet();
         render();
+        if (ok) showToast('Removed');
       });
     }
   }
