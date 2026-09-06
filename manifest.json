@@ -1,0 +1,12 @@
+{
+  "name": "YAPPPIP Office Itinerary",
+  "short_name": "Itinerary",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1E6B45",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

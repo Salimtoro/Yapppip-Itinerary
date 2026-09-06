@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Office Itinerary</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Itinerary">
+<meta name="theme-color" content="#1E6B45">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --ink: #16241D;
+    --ink-soft: #5B6E63;
+    --navy: #1E6B45;
+    --gold: #3E9169;
+    --gold-soft: #DCEFE3;
+    --purple-soft: #E3DCE7;
+    --grey-soft: #ECEAE3;
+    --line: #DCE4DE;
+    --card: #FFFFFF;
+    --danger: #A24B3F;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 440px;
+    min-height: 100vh;
+    background: var(--bg);
+    padding: 26px 20px 100px;
+    position: relative;
+  }
+
+  header { margin-bottom: 20px; }
+
+  .app-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .app-brand img {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .agency-name {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    letter-spacing: 0.4px;
+    max-width: 300px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .agenda-title {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: 0.3px;
+    margin: 2px 0 0;
+  }
+
+  .agenda-tagline {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    font-style: italic;
+    letter-spacing: 0.3px;
+    margin: 0;
+  }
+
+  .reminder-banner {
+    background: var(--gold-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .reminder-banner span { font-size: 12.5px; color: var(--ink); font-weight: 500; }
+
+  .reminder-btn {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .tabs {
+    display: inline-flex;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px;
+    margin-bottom: 18px;
+  }
+
+  .tab {
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    padding: 7px 15px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .tab.active { background: var(--navy); color: #fff; }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 0 14px;
+  }
+
+  .date-headline {
+    font-family: 'Fraunces', serif;
+    font-size: 29px;
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--navy);
+    margin: 0 0 4px;
+  }
+
+  .subline { font-size: 13px; color: var(--ink-soft); margin: 0; }
+
+  .timeline {
+    margin-top: 24px;
+    opacity: 0;
+    transform: translateY(6px);
+    animation: rise 0.45s ease forwards;
+  }
+
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  .item-row { display: grid; grid-template-columns: 56px 1fr; gap: 0; }
+
+  .rail { display: flex; flex-direction: column; align-items: center; }
+
+  .rail .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--gold); margin-top: 6px; flex-shrink: 0;
+  }
+
+  .rail .connector { width: 1.5px; flex: 1; background: var(--line); margin: 4px 0; }
+  .item-row:last-child .rail .connector { display: none; }
+
+  .time-label {
+    font-size: 12px; font-weight: 600; color: var(--navy);
+    padding-top: 2px; letter-spacing: 0.2px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 14px;
+    margin: 0 0 14px 12px;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+  }
+
+  .card:hover { box-shadow: 0 2px 10px rgba(28,35,51,0.06); }
+
+  .card-top {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 8px;
+  }
+
+  .card-title { font-size: 14.5px; font-weight: 600; color: var(--ink); margin: 0; }
+
+  .tag {
+    font-size: 10.5px; font-weight: 600; padding: 3px 8px;
+    border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+  }
+
+  .tag.meeting { background: #DCE3F0; color: var(--navy); }
+  .tag.travel { background: var(--gold-soft); color: #7A5A22; }
+  .tag.personal { background: var(--purple-soft); color: #5B3E70; }
+  .tag.call { background: #DDEFEA; color: #1E6B6B; }
+  .tag.other { background: var(--grey-soft); color: var(--ink-soft); }
+
+  .card-note { font-size: 13px; color: var(--ink-soft); margin: 5px 0 0; line-height: 1.4; }
+  .card-audience { font-size: 11.5px; color: var(--ink-soft); font-style: italic; margin: 5px 0 0; }
+
+  .empty-state {
+    margin-top: 40px; text-align: center; color: var(--ink-soft);
+    font-size: 14px; line-height: 1.6; padding: 0 20px;
+  }
+
+  .empty-state strong {
+    display: block; color: var(--navy); font-family: 'Fraunces', serif;
+    font-size: 19px; font-weight: 500; margin-bottom: 6px;
+  }
+
+  .add-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; justify-content: center;
+    padding: 16px 20px 22px;
+    background: linear-gradient(to top, var(--bg) 60%, transparent);
+    pointer-events: none;
+  }
+
+  .add-btn {
+    pointer-events: all; max-width: 400px; width: 100%;
+    background: var(--navy); color: #fff; border: none; border-radius: 12px;
+    padding: 14px; font-family: 'Inter', sans-serif; font-size: 14.5px;
+    font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(35,44,73,0.25);
+  }
+
+  .add-btn:focus-visible, .tab:focus-visible, .form-btn:focus-visible,
+  .chip:focus-visible, .day-row:focus-visible, .back-link:focus-visible {
+    outline: 2px solid var(--gold); outline-offset: 2px;
+  }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(28,35,51,0.4);
+    display: flex; align-items: flex-end; justify-content: center; z-index: 10;
+  }
+
+  .sheet {
+    width: 100%; max-width: 440px; background: var(--card);
+    border-radius: 18px 18px 0 0; padding: 22px 20px 26px;
+    animation: sheetUp 0.25s ease; max-height: 88vh; overflow-y: auto;
+  }
+
+  @keyframes sheetUp {
+    from { transform: translateY(16px); opacity: 0.6; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .sheet h3 {
+    font-family: 'Fraunces', serif; font-weight: 500; font-size: 19px;
+    margin: 0 0 16px; color: var(--navy);
+  }
+
+  label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--ink-soft); margin: 12px 0 5px;
+  }
+
+  input[type="time"], input[type="text"], input[type="date"], textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 11px; font-family: 'Inter', sans-serif; font-size: 14px;
+    color: var(--ink); background: #fff;
+  }
+
+  textarea { resize: none; min-height: 54px; }
+
+  .chip-row { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+
+  .chip {
+    border: 1px solid var(--line); background: #fff; border-radius: 999px;
+    padding: 7px 13px; font-size: 12.5px; font-weight: 600;
+    color: var(--ink-soft); cursor: pointer;
+  }
+
+  .chip.selected.meeting { background: #DCE3F0; border-color: #DCE3F0; color: var(--navy); }
+  .chip.selected.travel { background: var(--gold-soft); border-color: var(--gold-soft); color: #7A5A22; }
+  .chip.selected.personal { background: var(--purple-soft); border-color: var(--purple-soft); color: #5B3E70; }
+  .chip.selected.call { background: #DDEFEA; border-color: #DDEFEA; color: #1E6B6B; }
+  .chip.selected.other { background: var(--grey-soft); border-color: var(--grey-soft); color: var(--ink-soft); }
+  .chip.selected.audience { background: var(--navy); border-color: var(--navy); color: #fff; }
+
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+  .form-btn {
+    flex: 1; border: none; border-radius: 10px; padding: 12px;
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+
+  .form-btn.save { background: var(--navy); color: #fff; }
+  .form-btn.cancel { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+  .form-btn.remove { background: transparent; color: var(--danger); border: 1px solid #EBD3CE; }
+
+  .status { text-align: center; color: var(--ink-soft); font-size: 13px; margin-top: 40px; }
+
+  /* History view */
+  .stats-card {
+    background: var(--navy); color: #fff; border-radius: 14px;
+    padding: 18px 18px; margin-top: 22px; margin-bottom: 22px;
+  }
+
+  .stats-card .stats-month {
+    font-size: 12px; opacity: 0.75; margin: 0 0 10px;
+  }
+
+  .stats-row { display: flex; gap: 22px; }
+
+  .stat-num {
+    font-family: 'Fraunces', serif; font-size: 26px; font-weight: 500; margin: 0;
+  }
+
+  .stat-label { font-size: 11.5px; opacity: 0.8; margin: 2px 0 0; }
+
+  .month-group { margin-bottom: 6px; }
+
+  .month-heading {
+    font-size: 12px; font-weight: 700; color: var(--ink-soft);
+    margin: 18px 0 8px; text-transform: capitalize;
+  }
+
+  .day-row {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
+  }
+
+  .day-row-date { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .day-row-count { font-size: 12px; color: var(--ink-soft); }
+
+  .history-loading { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <header>
+    <div class="app-brand">
+      <img src="logo.png" alt="" onerror="this.style.display='none'">
+      <p class="agency-name">Yobe State Agency for Public–Private Partnership and Investment Promotion (YAPPPIP)</p>
+      <h2 class="agenda-title">DG's Agenda</h2>
+      <p class="agenda-tagline">Engagements · Meetings · Missions · Milestones</p>
+    </div>
+    <div id="reminderBannerSlot"></div>
+    <div class="tabs" id="tabsRow">
+      <button class="tab" id="tab-today">Today</button>
+      <button class="tab" id="tab-tomorrow">Tomorrow</button>
+      <button class="tab" id="tab-history">History</button>
+    </div>
+    <div id="backLinkSlot"></div>
+    <h1 class="date-headline" id="dateHeadline">—</h1>
+    <p class="subline" id="subline">Loading schedule…</p>
+  </header>
+
+  <div id="content"></div>
+</div>
+
+<div class="add-bar" id="addBar">
+  <button class="add-btn" id="openAdd">Add activity</button>
+</div>
+
+<div id="sheetRoot"></div>
+
+<script>
+(function () {
+  const firebaseConfig = {
+    apiKey: "AIzaSyCOrk6dLXf93gF0BfuqVCQ3j2Vcz4j-_rQ",
+    authDomain: "register-app-44b86.firebaseapp.com",
+    projectId: "register-app-44b86",
+    storageBucket: "register-app-44b86.firebasestorage.app",
+    messagingSenderId: "64007537570",
+    appId: "1:64007537570:web:0eb74b1fc33720f0aee8fb"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  try { db.enablePersistence().catch(() => {}); } catch (e) {}
+  const state = {
+    view: 'tomorrow',        // 'today' | 'tomorrow' | 'history' | an ISO date string (history detail)
+    historyDetailDate: null, // set when drilled into a past day from History
+    items: {},                // cache keyed by ISO date string
+    historyIndex: null,      // cached list of {date, count, meetingCount}
+  };
+
+  function todayISO(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function resolveDateForView(view) {
+    if (view === 'today') return todayISO(0);
+    if (view === 'tomorrow') return todayISO(1);
+    return view; // history detail: view IS the ISO date string
+  }
+
+  function formatHeadline(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function formatMonthYear(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }
+
+  function formatDayShort(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  async function loadDay(iso) {
+    try {
+      const snap = await db.collection('itinerary').doc(iso).get();
+      state.items[iso] = snap.exists && snap.data().items ? snap.data().items : [];
+    } catch (e) {
+      console.error('Load failed', e);
+      state.items[iso] = [];
+    }
+  }
+
+  async function saveDay(iso) {
+    try {
+      await db.collection('itinerary').doc(iso).set({ items: state.items[iso] });
+    } catch (e) {
+      console.error('Storage save failed', e);
+      alert('Could not save — check your connection and try again.');
+    }
+  }
+
+  function sortItems(list) { return list.slice().sort((a, b) => a.time.localeCompare(b.time)); }
+
+  function formatTime12(t) {
+    const [h, m] = t.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + period;
+  }
+
+  function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ---------- Reminders (while the app is open) ----------
+
+  state.notifiedIds = new Set();
+
+  function renderReminderBanner() {
+    const slot = document.getElementById('reminderBannerSlot');
+    if (!('Notification' in window)) { slot.innerHTML = ''; return; }
+
+    if (Notification.permission === 'granted') {
+      slot.innerHTML = '';
+    } else if (Notification.permission === 'denied') {
+      slot.innerHTML = `<div class="reminder-banner"><span>Reminders are off — enable notifications for this app in your phone's Settings.</span></div>`;
+    } else {
+      slot.innerHTML = `<div class="reminder-banner"><span>Get a nudge 30 minutes before each activity.</span><button class="reminder-btn" id="enableReminders">Turn on</button></div>`;
+      document.getElementById('enableReminders').addEventListener('click', async () => {
+        try {
+          await Notification.requestPermission();
+        } catch (e) {}
+        renderReminderBanner();
+      });
+    }
+  }
+
+  async function checkReminders() {
+    const iso = todayISO(0);
+    if (state.items[iso] === undefined) await loadDay(iso);
+    const items = state.items[iso] || [];
+    const now = new Date();
+    items.forEach(item => {
+      if (state.notifiedIds.has(item.id)) return;
+      const [h, m] = item.time.split(':').map(Number);
+      const target = new Date();
+      target.setHours(h, m, 0, 0);
+      const diffMin = (target - now) / 60000;
+      if (diffMin > 0 && diffMin <= 30) {
+        state.notifiedIds.add(item.id);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification('Starting in ' + Math.round(diffMin) + ' min', {
+              body: item.title + ' · ' + formatTime12(item.time)
+            });
+          } catch (e) {}
+        }
+      }
+    });
+  }
+
+  // ---------- Rendering: Today / Tomorrow / history detail ----------
+
+  function setTabsActive(activeTab) {
+    ['today', 'tomorrow', 'history'].forEach(t => {
+      document.getElementById('tab-' + t).className = 'tab' + (t === activeTab ? ' active' : '');
+    });
+  }
+
+  async function renderDayView() {
+    const iso = resolveDateForView(state.view);
+    document.getElementById('tabsRow').style.display = state.view === 'today' || state.view === 'tomorrow' ? 'inline-flex' : 'none';
+    setTabsActive(state.view === 'today' || state.view === 'tomorrow' ? state.view : null);
+    document.getElementById('addBar').style.display = 'flex';
+
+    const backSlot = document.getElementById('backLinkSlot');
+    if (state.view !== 'today' && state.view !== 'tomorrow') {
+      backSlot.innerHTML = `<button class="back-link" id="backBtn">‹ Back to History</button>`;
+      document.getElementById('backBtn').addEventListener('click', () => { state.view = 'history'; render(); });
+    } else {
+      backSlot.innerHTML = '';
+    }
+
+    document.getElementById('dateHeadline').textContent = formatHeadline(iso);
+
+    if (state.items[iso] === undefined) {
+      document.getElementById('subline').textContent = 'Loading schedule…';
+      document.getElementById('content').innerHTML = '<div class="status">Loading…</div>';
+      await loadDay(iso);
+    }
+
+    const items = state.items[iso] || [];
+    document.getElementById('subline').textContent = items.length
+      ? items.length + (items.length === 1 ? ' item' : ' items') + (items.filter(i => i.type === 'meeting').length ? ' · ' + items.filter(i => i.type === 'meeting').length + ' meeting' + (items.filter(i => i.type === 'meeting').length === 1 ? '' : 's') : '')
+      : 'Nothing planned yet';
+
+    const content = document.getElementById('content');
+    if (items.length === 0) {
+      content.innerHTML = `
+        <div class="empty-state">
+          <strong>Nothing here yet</strong>
+          Add the first item and it'll be on record for this day.
+        </div>`;
+      return;
+    }
+
+    const sorted = sortItems(items);
+    content.innerHTML = `<div class="timeline">${sorted.map(rowHTML).join('')}</div>`;
+    sorted.forEach(item => {
+      const el = document.getElementById('card-' + item.id);
+      if (el) el.addEventListener('click', () => openSheet(item, iso));
+    });
+  }
+
+  function rowHTML(item) {
+    const type = item.type || 'other';
+    const typeLabel = { meeting: 'Meeting', travel: 'Travel', personal: 'Personal', call: 'Call', other: 'Other' }[type];
+    return `
+      <div class="item-row">
+        <div class="rail"><div class="dot"></div><div class="connector"></div></div>
+        <div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:56px 1fr;margin-top:-46px;">
+        <div class="time-label">${formatTime12(item.time)}</div>
+        <div class="card" id="card-${item.id}">
+          <div class="card-top">
+            <p class="card-title">${escapeHTML(item.title)}</p>
+            <span class="tag ${type}">${typeLabel}</span>
+          </div>
+          ${item.note ? `<p class="card-note">${escapeHTML(item.note)}</p>` : ''}
+          ${item.forWho === 'boss' ? `<p class="card-audience">For the boss only</p>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ---------- History view ----------
+
+  async function renderHistoryView() {
+    document.getElementById('tabsRow').style.display = 'inline-flex';
+    setTabsActive('history');
+    document.getElementById('backLinkSlot').innerHTML = '';
+    document.getElementById('addBar').style.display = 'none';
+    document.getElementById('dateHeadline').textContent = 'History';
+    document.getElementById('subline').textContent = 'A record of every day logged so far.';
+
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="history-loading">Loading records…</div>';
+
+    if (state.historyIndex === null) await buildHistoryIndex();
+
+    const todayStr = todayISO(0);
+    const pastDays = state.historyIndex.filter(d => d.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
+
+    const thisMonthPrefix = todayStr.slice(0, 7);
+    const thisMonthDays = state.historyIndex.filter(d => d.date.slice(0, 7) === thisMonthPrefix && d.date <= todayStr);
+    const monthMeetings = thisMonthDays.reduce((sum, d) => sum + d.meetingCount, 0);
+    const monthTotal = thisMonthDays.reduce((sum, d) => sum + d.count, 0);
+
+    let html = `
+      <div class="stats-card">
+        <p class="stats-month">${formatMonthYear(todayStr)} so far</p>
+        <div class="stats-row">
+          <div><p class="stat-num">${monthMeetings}</p><p class="stat-label">Meetings</p></div>
+          <div><p class="stat-num">${monthTotal}</p><p class="stat-label">Total activities</p></div>
+          <div><p class="stat-num">${thisMonthDays.length}</p><p class="stat-label">Days logged</p></div>
+        </div>
+      </div>`;
+
+    if (pastDays.length === 0) {
+      html += `<div class="empty-state"><strong>No past days yet</strong>Once today becomes yesterday, it'll show up here automatically.</div>`;
+    } else {
+      let lastMonth = null;
+      pastDays.forEach(d => {
+        const monthLabel = formatMonthYear(d.date);
+        if (monthLabel !== lastMonth) {
+          html += `<p class="month-heading">${monthLabel}</p>`;
+          lastMonth = monthLabel;
+        }
+        html += `
+          <div class="day-row" tabindex="0" data-date="${d.date}">
+            <span class="day-row-date">${formatDayShort(d.date)}</span>
+            <span class="day-row-count">${d.count} item${d.count === 1 ? '' : 's'}${d.meetingCount ? ' · ' + d.meetingCount + ' meeting' + (d.meetingCount === 1 ? '' : 's') : ''}</span>
+          </div>`;
+      });
+    }
+
+    content.innerHTML = html;
+
+    content.querySelectorAll('.day-row').forEach(row => {
+      row.addEventListener('click', () => {
+        state.view = row.getAttribute('data-date');
+        render();
+      });
+    });
+  }
+
+  async function buildHistoryIndex() {
+    const index = [];
+    try {
+      const snap = await db.collection('itinerary').get();
+      snap.forEach(doc => {
+        const iso = doc.id;
+        const list = (doc.data().items) || [];
+        state.items[iso] = list;
+        if (list.length > 0) {
+          index.push({
+            date: iso,
+            count: list.length,
+            meetingCount: list.filter(i => i.type === 'meeting').length,
+          });
+        }
+      });
+    } catch (e) {
+      console.error('History load failed', e);
+    }
+    state.historyIndex = index;
+  }
+
+  function invalidateHistoryIndexFor(iso) {
+    if (state.historyIndex) state.historyIndex = state.historyIndex.filter(d => d.date !== iso);
+    // will be rebuilt with fresh count next time History is opened
+    state.historyIndex = null;
+  }
+
+  // ---------- Add / edit sheet ----------
+
+  function openSheet(existing, iso) {
+    const type = existing ? (existing.type || 'other') : 'meeting';
+    const forWho = existing ? (existing.forWho || 'both') : 'both';
+
+    const root = document.getElementById('sheetRoot');
+    root.innerHTML = `
+      <div class="overlay" id="overlay">
+        <div class="sheet">
+          <h3>${existing ? 'Edit activity' : 'New activity'}</h3>
+          <label for="f-time">Time</label>
+          <input type="time" id="f-time" value="${existing ? existing.time : ''}">
+          <label for="f-title">What is it</label>
+          <input type="text" id="f-title" placeholder="e.g. Meeting with Bureau of Public Procurement" value="${existing ? escapeHTML(existing.title) : ''}">
+          <label for="f-note">Note (optional)</label>
+          <textarea id="f-note" placeholder="Venue, who's attending, anything he should know">${existing ? escapeHTML(existing.note || '') : ''}</textarea>
+          <label>Type</label>
+          <div class="chip-row" id="typeChips">
+            <button class="chip meeting ${type === 'meeting' ? 'selected' : ''}" data-type="meeting" type="button">Meeting</button>
+            <button class="chip travel ${type === 'travel' ? 'selected' : ''}" data-type="travel" type="button">Travel</button>
+            <button class="chip personal ${type === 'personal' ? 'selected' : ''}" data-type="personal" type="button">Personal</button>
+            <button class="chip call ${type === 'call' ? 'selected' : ''}" data-type="call" type="button">Call</button>
+            <button class="chip other ${type === 'other' ? 'selected' : ''}" data-type="other" type="button">Other</button>
+          </div>
+          <label>Who this is for</label>
+          <div class="chip-row" id="audienceChips">
+            <button class="chip audience ${forWho === 'both' ? 'selected' : ''}" data-who="both" type="button">Both of us</button>
+            <button class="chip audience ${forWho === 'boss' ? 'selected' : ''}" data-who="boss" type="button">Boss only</button>
+          </div>
+          <div class="form-actions">
+            <button class="form-btn cancel" id="cancelBtn">Cancel</button>
+            <button class="form-btn save" id="saveBtn">Save</button>
+          </div>
+          ${existing ? '<button class="form-btn remove" id="removeBtn" style="width:100%;margin-top:10px;">Remove activity</button>' : ''}
+        </div>
+      </div>`;
+
+    let selectedType = type;
+    let selectedWho = forWho;
+
+    root.querySelectorAll('#typeChips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedType = btn.getAttribute('data-type');
+        root.querySelectorAll('#typeChips .chip').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+    root.querySelectorAll('#audienceChips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedWho = btn.getAttribute('data-who');
+        root.querySelectorAll('#audienceChips .chip').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+
+    document.getElementById('overlay').addEventListener('click', (e) => { if (e.target.id === 'overlay') closeSheet(); });
+    document.getElementById('cancelBtn').addEventListener('click', closeSheet);
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      try {
+        const time = document.getElementById('f-time').value;
+        const title = document.getElementById('f-title').value.trim();
+        const note = document.getElementById('f-note').value.trim();
+
+        if (!time || !title) { alert('Please add a time and a short description.'); return; }
+
+        if (state.items[iso] === undefined) await loadDay(iso);
+        const list = state.items[iso];
+        if (existing) {
+          const idx = list.findIndex(i => i.id === existing.id);
+          list[idx] = { ...existing, time, title, note, type: selectedType, forWho: selectedWho };
+        } else {
+          list.push({ id: 'i' + Date.now() + Math.random().toString(36).slice(2, 6), time, title, note, type: selectedType, forWho: selectedWho });
+        }
+        await saveDay(iso);
+        invalidateHistoryIndexFor(iso);
+        closeSheet();
+        render();
+      } catch (err) {
+        console.error('Save button error', err);
+        alert('Save error: ' + (err && err.message ? err.message : err));
+      }
+    });
+
+    if (existing) {
+      document.getElementById('removeBtn').addEventListener('click', async () => {
+        state.items[iso] = state.items[iso].filter(i => i.id !== existing.id);
+        await saveDay(iso);
+        invalidateHistoryIndexFor(iso);
+        closeSheet();
+        render();
+      });
+    }
+  }
+
+  function closeSheet() { document.getElementById('sheetRoot').innerHTML = ''; }
+
+  // ---------- Router ----------
+
+  function render() {
+    if (state.view === 'history') {
+      renderHistoryView();
+    } else {
+      renderDayView();
+    }
+  }
+
+  document.getElementById('tab-today').addEventListener('click', () => { state.view = 'today'; render(); });
+  document.getElementById('tab-tomorrow').addEventListener('click', () => { state.view = 'tomorrow'; render(); });
+  document.getElementById('tab-history').addEventListener('click', () => { state.view = 'history'; render(); });
+  document.getElementById('openAdd').addEventListener('click', () => openSheet(null, resolveDateForView(state.view)));
+
+  render();
+  renderReminderBanner();
+  checkReminders();
+  setInterval(checkReminders, 60000);
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
