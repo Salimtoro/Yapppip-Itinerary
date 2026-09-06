@@ -2,7 +2,7 @@
 // On first visit (with internet), it saves a copy of the app.
 // On later visits with no signal, it serves that saved copy so the app still opens.
 
-const CACHE_NAME = 'office-itinerary-v1';
+const CACHE_NAME = 'office-itinerary-v2';
 const FILES_TO_CACHE = [
   './index.html',
   './manifest.json',
@@ -28,7 +28,15 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first, fall back to cache when offline
+  const url = new URL(event.request.url);
+
+  // Only manage this app's own files. Let everything else (Firestore, Google
+  // Fonts, etc.) go straight through untouched, so we never interfere with
+  // the database's own connection.
+  if (url.origin !== self.location.origin || event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
